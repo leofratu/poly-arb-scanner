@@ -14,24 +14,24 @@ Binary options on prediction markets frequently exhibit pricing dislocations nea
 ## Quantitative Framework
 
 ### 1. Risk-Neutral Pricing Model
-A binary contract pays 1.00 USDC at $T$ if event $E$ occurs. Let $P_{ask}$ be the current limit ask price for the `Yes` outcome. The market-implied probability is $p = P_{ask}$.
+A binary contract pays 1.00 USDC at $T$ if event $E$ occurs. Let $P$ be the current limit ask price for the `Yes` outcome. The market-implied probability is $p = P$.
 
-Assuming $E$ is a near-certainty ($p \to 1$), purchasing the contract at $P_{ask}$ yields an absolute return $R$:
-$$
-R = \frac{1 - P_{ask}}{P_{ask}}
-$$
+Assuming $E$ is a near-certainty ($p \to 1$), purchasing the contract at $P$ yields an absolute return $R$:
+```math
+R = \frac{1 - P}{P}
+```
 
 ### 2. Duration Standardization (APY)
 To benchmark against TradFi instruments, we annualize the return over the time to maturity $\Delta t = T - t$ (in days):
-$$
+```math
 Y_{poly} = R \times \left( \frac{365}{\Delta t} \right)
-$$
+```
 
 ### 3. Spread Calculation
 We construct a continuous risk-free yield curve $R_f(\tau)$ via linear interpolation of US Treasury active contracts (`^IRX`, `^FVX`, `^TNX`). The actionable spread $\sigma$ is defined as:
-$$
+```math
 \sigma = Y_{poly} - R_f(\Delta t)
-$$
+```
 
 An arbitrage signal is generated when $\sigma > \sigma_{threshold}$, subject to liquidity constraints.
 
