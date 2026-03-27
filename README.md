@@ -8,7 +8,7 @@ Binary options on prediction markets frequently exhibit pricing dislocations nea
 ## Quantitative Framework
 
 ### 1. Risk-Neutral Pricing Model
-A binary contract pays $\$1.00$ at $T$ if event $E$ occurs. Let $P_{ask}$ be the current limit ask price for the `Yes` outcome. The market-implied probability is $p = P_{ask}$.
+A binary contract pays 1.00 USDC at $T$ if event $E$ occurs. Let $P_{ask}$ be the current limit ask price for the `Yes` outcome. The market-implied probability is $p = P_{ask}$.
 
 Assuming $E$ is a near-certainty ($p \to 1$), purchasing the contract at $P_{ask}$ yields an absolute return $R$:
 $$
@@ -31,7 +31,7 @@ An arbitrage signal is generated when $\sigma > \sigma_{threshold}$, subject to 
 
 ### 4. Assumptions & Risks
 * **Counterparty Risk**: Assumes zero protocol exploit risk (Polymarket/UMA Oracle).
-* **Currency Risk**: Assumes USDC maintains strict $\$1.00$ peg until $T$.
+* **Currency Risk**: Assumes USDC maintains strict 1:1 USD peg until $T$.
 * **Execution**: PolyArb scans top-of-book (BBO). Deep fills require volume-weighted average price (VWAP) adjustments.
 
 ## System Architecture
@@ -49,7 +49,7 @@ uv sync
 ## Execution Pipeline
 
 ### Terminal Scanner
-Execute a cross-market scan targeting a minimum annualized spread $\sigma \ge 5.0\%$:
+Execute a cross-market scan targeting a minimum annualized spread $\sigma \ge 5.0$ percent:
 ```bash
 uv run python main.py scan --threshold 5.0
 ```
