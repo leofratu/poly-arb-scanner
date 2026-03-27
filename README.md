@@ -1,6 +1,12 @@
-# PolyArb: Yield Curve Arbitrage & Probability Dislocation Scanner
+# PolyArb: Cross-Asset Event Arbitrage Engine
 
-PolyArb is a quantitative CLI pipeline engineered to detect duration-mismatched yield spreads between retail prediction markets (Polymarket) and US Treasury benchmark rates.
+PolyArb is a quantitative CLI pipeline engineered to detect and exploit pricing dislocations between decentralized prediction markets (Polymarket) and traditional financial (TradFi) securities.
+
+## Strategic Objective
+
+As Polymarket scales into a major global liquidity pool, severe pricing inefficiencies persist between retail-driven prediction markets and institutional "big bank" securities. PolyArb acts as a quantitative bridge to capture these dislocations.
+
+The engine systematically scans diverse prediction categories (macroeconomic events, weather anomalies, geopolitics, elections) and benchmarks them against correlated traditional instruments. Because prediction market prices frequently fail to accurately reflect underlying real-world probabilities, traders can utilize PolyArb to detect mispriced risk and execute cross-asset arbitrage.
 
 ## Abstract
 Binary options on prediction markets frequently exhibit pricing dislocations near resolution due to retail capital inefficiency and liquidity fragmentation. By modeling high-probability `Yes` contracts as zero-coupon bonds, PolyArb identifies synthetic fixed-income instruments that out-yield the traditional risk-free rate ($R_f$).
