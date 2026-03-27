@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Prompt
+from rich import print as rprint
 from rich.markdown import Markdown
 
 from arbitrage import Opportunity, scan_opportunities
@@ -34,7 +35,7 @@ def export_data(data: list[Opportunity], format_type: Literal["json", "csv"]) ->
             writer = csv.DictWriter(f, fieldnames=data[0].keys())
             writer.writeheader()
             writer.writerows(data)
-    console.print(f"\\n[bold green]✓[/bold green] Exported {len(data)} opportunities to [bold white]{filename}[/bold white]")
+    console.print(f"\n[bold green]✓[/bold green] Exported {len(data)} opportunities to [bold white]{filename}[/bold white]")
 
 @app.command()
 def scan(
@@ -69,7 +70,7 @@ def scan(
         return
 
     table = Table(show_header=True, header_style="bold magenta", border_style="cyan", title_justify="left")
-    table.title = f"\\n[bold white]Arbitrage Opportunities (>{threshold}% Spread)[/bold white]"
+    table.title = f"\n[bold white]Arbitrage Opportunities (>{threshold}% Spread)[/bold white]"
     table.add_column("Market", style="cyan", no_wrap=False, max_width=45)
     table.add_column("Days", justify="right", style="magenta")
     table.add_column("Favorite", style="blue")
@@ -108,16 +109,11 @@ def chat(
     """Chat with an AI assistant about current arbitrage opportunities."""
     console.print(BANNER)
     
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        console.print(Panel("[bold yellow]Missing OPENROUTER_API_KEY[/bold yellow]\\n\\nPlease set your OpenRouter API key to use the AI chat feature:\\n[dim]export OPENROUTER_API_KEY='sk-or-v1-...'[/dim]\\n\\nIf you don't have one, get it at [underline]https://openrouter.ai/[/underline]", border_style="yellow"))
-        
-        # Create a .env file as a placeholder if it doesn't exist
-        if not os.path.exists(".env"):
-            with open(".env", "w") as f:
-                f.write("OPENROUTER_API_KEY=your_key_here\n")
-            console.print("[dim]A placeholder .env file has been created in the current directory.[/dim]")
-            
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+    
+    if not gemini_key and not openrouter_key:
+        console.print(Panel("[bold yellow]Missing API Key[/bold yellow]\n\nPlease set GEMINI_API_KEY or OPENROUTER_API_KEY.\n[dim]export GEMINI_API_KEY='AIza...'[/dim]", border_style="yellow"))
         raise typer.Exit(1)
         
     with console.status("[bold green]Gathering live market data for AI context..."):
@@ -140,14 +136,20 @@ def chat(
             console.print(f"[bold red]Error gathering data: {e}")
             raise typer.Exit(code=1)
 
-    console.print("[bold green]✓[/bold green] Live market data loaded. You are now chatting with the Poly-Arb AI (powered by OpenRouter Free Models).\\n")
+    provider = "Gemini 3.1 Pro" if gemini_key else "OpenRouter (Nemotron)"
+    console.print(f"[bold green]✓[/bold green] Live market data loaded. You are now chatting with the Poly-Arb AI (powered by {provider}).\n")
     
-    messages = [
-        {
-            "role": "system",
-            "content": f"You are a Polymarket arbitrage analyst. You help the user find the best trading opportunities based on live data. Here are the top live opportunities right now (spread is Polymarket annualized yield minus risk-free TradFi yield): {context_data}. Be extremely concise, use bullet points, and highlight the highest spreads. Do not invent data."
-        }
-    ]
+    system_prompt = f"You are a Polymarket arbitrage analyst. You help the user find the best trading opportunities based on live data. Here are the top live opportunities right now (spread is Polymarket annualized yield minus risk-free TradFi yield): {context_data}. Be extremely concise, use bullet points, and highlight the highest spreads. Do not invent data."
+    
+    if gemini_key:
+        from google import genai
+        client = genai.Client(api_key=gemini_key)
+        chat_session = client.chats.create(
+            model="gemini-3.1-pro-preview",
+            config={"system_instruction": system_prompt}
+        )
+    else:
+        messages = [{"role": "system", "content": system_prompt}]
     
     while True:
         try:
@@ -155,31 +157,34 @@ def chat(
             if user_input.lower() in ["exit", "quit", "q"]:
                 break
                 
-            messages.append({"role": "user", "content": user_input})
-            
             with console.status("[bold magenta]AI is thinking..."):
-                response = requests.post(
-                    url="https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "nvidia/nemotron-3-super-120b-a12b:free",
-                        "messages": messages
-                    }
-                )
-                
-            if response.status_code != 200:
-                console.print(f"[bold red]API Error:[/bold red] {response.text}")
-                messages.pop() # remove failed message
-                continue
-                
-            data = response.json()
-            ai_msg = data["choices"][0]["message"]["content"]
-            messages.append({"role": "assistant", "content": ai_msg})
+                if gemini_key:
+                    response = chat_session.send_message(user_input)
+                    ai_msg = response.text
+                else:
+                    messages.append({"role": "user", "content": user_input})
+                    response = requests.post(
+                        url="https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {openrouter_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "nvidia/nemotron-3-super-120b-a12b:free",
+                            "messages": messages
+                        }
+                    )
+                    
+                    if response.status_code != 200:
+                        console.print(f"[bold red]API Error:[/bold red] {response.text}")
+                        messages.pop()
+                        continue
+                        
+                    data = response.json()
+                    ai_msg = data["choices"][0]["message"]["content"]
+                    messages.append({"role": "assistant", "content": ai_msg})
             
-            console.print(Panel(Markdown(ai_msg), title="[bold magenta]Poly-Arb AI[/bold magenta]", border_style="magenta", padding=(1, 2)))
+            console.print(Panel(Markdown(ai_msg), title=f"[bold magenta]{provider}[/bold magenta]", border_style="magenta", padding=(1, 2)))
             
         except KeyboardInterrupt:
             break
