@@ -13,31 +13,36 @@ Binary options on prediction markets frequently exhibit pricing dislocations nea
 
 ## Quantitative Framework
 
-### 1. Risk-Neutral Pricing Model
-A binary contract pays 1.00 USDC at $T$ if event $E$ occurs. Let $P$ be the current limit ask price for the `Yes` outcome. The market-implied probability is $p = P$.
-
-Assuming $E$ is a near-certainty ($p \to 1$), purchasing the contract at $P$ yields an absolute return $R$:
+### 1. Decentralized Implied Probability
+A binary contract pays 1.00 USDC at $T$ if event $E$ occurs. Let $P$ be the current limit ask price for the `Yes` outcome. The decentralized market-implied probability is:
 ```math
-R = \frac{1 - P}{P}
+P_{poly} = P
 ```
 
-### 2. Duration Standardization (APY)
-To benchmark against TradFi instruments, we annualize the return over the time to maturity $\Delta t = T - t$ (in days):
+### 2. Institutional Implied Probability (Black-Scholes)
+To benchmark the decentralized probability against traditional finance (TradFi), the engine parses the underlying asset spot price $S$, the event strike price $K$, and time to maturity $T_{years}$.
+
+Using the Black-Scholes options pricing model, the risk-neutral probability of the asset closing in-the-money (ITM) is the cumulative distribution function $\Phi$ evaluated at $d_2$:
 ```math
-Y_{poly} = R \times \left( \frac{365}{\Delta t} \right)
+d_2 = \frac{\ln(S/K) + (R_f - \frac{\sigma_{iv}^2}{2})T_{years}}{\sigma_{iv}\sqrt{T_{years}}}
 ```
+```math
+P_{tradfi} = \Phi(d_2)
+```
+Where $\sigma_{iv}$ is the implied volatility derived from the closest active options chain.
 
 ### 3. Spread Calculation
-We construct a continuous risk-free yield curve $R_f(\tau)$ via linear interpolation of US Treasury active contracts (`^IRX`, `^FVX`, `^TNX`). The actionable spread $\sigma$ is defined as:
+We construct a continuous risk-free yield curve $R_f$ via linear interpolation of US Treasury active contracts (`^IRX`, `^FVX`, `^TNX`). The actionable cross-asset spread $\sigma_{arb}$ is defined as the absolute divergence between the two probabilities:
 ```math
-\sigma = Y_{poly} - R_f(\Delta t)
+\sigma_{arb} = |P_{poly} - P_{tradfi}|
 ```
 
-An arbitrage signal is generated when $\sigma > \sigma_{threshold}$, subject to liquidity constraints.
+An arbitrage signal is generated when $\sigma_{arb} > \sigma_{threshold}$, subject to liquidity constraints.
 
 ### 4. Assumptions & Risks
 * **Counterparty Risk**: Assumes zero protocol exploit risk (Polymarket/UMA Oracle).
 * **Currency Risk**: Assumes USDC maintains strict 1:1 USD peg until $T$.
+* **Data Limitations**: The engine requires liquid options chains via Yahoo Finance. Weather derivatives (e.g., CME HDD/CDD futures) lack free institutional options data and will be bypassed.
 * **Execution**: PolyArb scans top-of-book (BBO). Deep fills require volume-weighted average price (VWAP) adjustments.
 
 ## System Architecture
