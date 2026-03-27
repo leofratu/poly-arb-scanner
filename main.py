@@ -40,7 +40,7 @@ def export_data(data: list[Opportunity], format_type: Literal["json", "csv"]) ->
 @app.command()
 def scan(
     threshold: float = typer.Option(
-        5.0, "--threshold", "-t", help="Minimum profit margin threshold (%)"
+        5.0, "--threshold", "-t", help="Minimum spread threshold (%)"
     ),
     export: str = typer.Option(
         None, "--export", "-e", help="Export format: csv or json"
@@ -49,7 +49,7 @@ def scan(
         50, "--limit", "-l", help="Number of Polymarket events to fetch"
     ),
 ) -> None:
-    """Scan Polymarket for risk-adjusted arbitrage opportunities."""
+    """Scan Polymarket for macro arbitrage opportunities."""
     console.print(BANNER)
     
     with console.status(
@@ -58,7 +58,7 @@ def scan(
         try:
             events = fetch_active_events(limit)
             status.update(
-                "[bold cyan]Analyzing markets and comparing with TradFi yields..."
+                "[bold cyan]Analyzing markets and comparing with TradFi Probs..."
             )
             opportunities = scan_opportunities(events, threshold)
         except Exception as e:
@@ -75,8 +75,8 @@ def scan(
     table.add_column("Days", justify="right", style="magenta")
     table.add_column("Favorite", style="blue")
     table.add_column("Price", justify="right", style="green")
-    table.add_column("Poly Yield", justify="right")
-    table.add_column("TradFi", justify="right", style="dim")
+    table.add_column("Poly Prob", justify="right")
+    table.add_column("TradFi Prob", justify="right", style="dim")
     table.add_column("Spread", justify="right", style="bold red")
 
     for opp in opportunities[:20]:
@@ -86,8 +86,8 @@ def scan(
             str(opp["days"]),
             opp["favorite"],
             f"${opp['price']:.3f}",
-            f"{opp['poly_yield']:.1f}%",
-            f"{opp['tradfi_yield']:.1f}%",
+            f"{opp['poly_prob']:.1f}%",
+            f"{opp['tradfi_prob']:.1f}%",
             f"{opp['spread']:.1f}%",
         )
 
@@ -139,7 +139,7 @@ def chat(
     provider = "Gemini 3.1 Pro" if gemini_key else "OpenRouter (Nemotron)"
     console.print(f"[bold green]✓[/bold green] Live market data loaded. You are now chatting with the Poly-Arb AI (powered by {provider}).\n")
     
-    system_prompt = f"You are a Polymarket arbitrage analyst. You help the user find the best trading opportunities based on live data. Here are the top live opportunities right now (spread is Polymarket annualized yield minus risk-free TradFi yield): {context_data}. Be extremely concise, use bullet points, and highlight the highest spreads. Do not invent data."
+    system_prompt = f"You are a Polymarket arbitrage analyst. You help the user find the best trading opportunities based on live data. Here are the top live opportunities right now (spread is absolute difference between Polymarket probability and TradFi option implied probability): {context_data}. Be extremely concise, use bullet points, and highlight the highest spreads. Do not invent data."
     
     if gemini_key:
         from google import genai
