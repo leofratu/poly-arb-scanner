@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from arbitrage import scan_opportunities
-from tradfi import get_risk_free_rate
+from tradfi import get_risk_free_rate, calculate_implied_probability, extract_financial_target
 
 
 def test_get_risk_free_rate():
@@ -11,15 +11,41 @@ def test_get_risk_free_rate():
         assert 0 <= rate <= 15
 
 
-def test_scan_opportunities():
+def test_calculate_implied_probability():
+    # ATM call, roughly 50%
+    prob = calculate_implied_probability(S=100.0, K=100.0, T_years=1.0, r=0.05, sigma=0.2)
+    assert 0.45 < prob < 0.60
+    
+    # ITM call should be high prob
+    prob_itm = calculate_implied_probability(S=120.0, K=100.0, T_years=1.0, r=0.05, sigma=0.2)
+    assert prob_itm > 0.80
+
+def test_extract_financial_target():
+    res = extract_financial_target("Will SPY close above 500?")
+    assert res is not None
+    assert res == ("SPY", 500.0, True)
+    
+    res2 = extract_financial_target("BTC to $100k?")
+    assert res2 is not None
+    assert res2 == ("BTC-USD", 100000.0, True)
+
+    res3 = extract_financial_target("AAPL crashes below $150?")
+    assert res3 is not None
+    assert res3 == ("AAPL", 150.0, False)
+
+def test_scan_opportunities(monkeypatch):
+    # Mock tradfi probability to avoid network calls
+    monkeypatch.setattr("arbitrage.get_tradfi_implied_probability", lambda q, d: 0.30)
+    
     end_date = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
     mock_events = [
         {
             "id": "1",
+            "title": "Will SPY close above 500?",
             "markets": [
                 {
                     "id": "m1",
-                    "question": "Will something happen?",
+                    "question": "Will SPY close above 500?",
                     "endDate": end_date,
                     "active": True,
                     "closed": False,
@@ -38,4 +64,6 @@ def test_scan_opportunities():
     assert opp["id"] == "m1"
     assert opp["favorite"] == "Yes"
     assert opp["price"] == 0.8
-    assert opp["spread"] > 0
+    assert opp["poly_prob"] == 80.0
+    assert opp["tradfi_prob"] == 30.0
+    assert opp["spread"] == 50.0
