@@ -1,65 +1,66 @@
-# Poly-Arb-Scanner
+# PolyArb: Yield Curve Arbitrage & Probability Dislocation Scanner
 
-A quantitative terminal interface designed to detect duration-mismatched yield spreads between prediction markets (Polymarket) and traditional fixed-income benchmark rates (US Treasuries).
+PolyArb is a quantitative CLI pipeline engineered to detect duration-mismatched yield spreads between retail prediction markets (Polymarket) and US Treasury benchmark rates.
 
-## Theoretical Framework
+## Abstract
+Binary options on prediction markets frequently exhibit pricing dislocations near resolution due to retail capital inefficiency and liquidity fragmentation. By modeling high-probability `Yes` contracts as zero-coupon bonds, PolyArb identifies synthetic fixed-income instruments that out-yield the traditional risk-free rate ($R_f$).
 
-The core arbitrage engine models binary options on prediction markets against the risk-free rate of return to identify mispriced capital allocation opportunities.
+## Quantitative Framework
 
-### Yield Calculation
+### 1. Risk-Neutral Pricing Model
+A binary contract pays $\$1.00$ at $T$ if event $E$ occurs. Let $P_{ask}$ be the current limit ask price for the `Yes` outcome. The market-implied probability is $p = P_{ask}$.
 
-For a binary outcome contract pricing the favorite at $P_{fav} \in (0, 1)$, the absolute return $R_{poly}$ holding to resolution $T$ (assuming outcome realization) is:
-
+Assuming $E$ is a near-certainty ($p \to 1$), purchasing the contract at $P_{ask}$ yields an absolute return $R$:
 $$
-R_{poly} = \frac{1 - P_{fav}}{P_{fav}}
-$$
-
-To standardize against traditional instruments, we calculate the annualized yield $Y_{poly}$ over the remaining duration $D$ in days:
-
-$$
-Y_{poly} = R_{poly} \times \left( \frac{365}{D} \right)
+R = \frac{1 - P_{ask}}{P_{ask}}
 $$
 
-### Spread Derivation
-
-We interpolate the risk-free rate $R_{rf}$ for duration $D$ using live US Treasury yields (`^IRX`, `^FVX`, `^TNX`). The executable spread $S$ is defined as:
-
+### 2. Duration Standardization (APY)
+To benchmark against TradFi instruments, we annualize the return over the time to maturity $\Delta t = T - t$ (in days):
 $$
-S = Y_{poly} - R_{rf}(D)
+Y_{poly} = R \times \left( \frac{365}{\Delta t} \right)
 $$
 
-An opportunity is flagged when $S > \tau$, where $\tau$ is a user-defined minimum profit margin threshold.
+### 3. Spread Calculation
+We construct a continuous risk-free yield curve $R_f(\tau)$ via linear interpolation of US Treasury active contracts (`^IRX`, `^FVX`, `^TNX`). The actionable spread $\sigma$ is defined as:
+$$
+\sigma = Y_{poly} - R_f(\Delta t)
+$$
 
-## Features
+An arbitrage signal is generated when $\sigma > \sigma_{threshold}$, subject to liquidity constraints.
 
-* **Order Book Ingestion**: Fetches active Polymarket events, parsing CLOB metrics and outcome pricing via the Gamma API.
-* **Dynamic Curve Interpolation**: Generates continuous risk-free rate approximations matched to exact contract maturities using `yfinance`.
-* **Agentic Market Analysis**: Integrates `nvidia/nemotron-3-super-120b-a12b:free` via OpenRouter to analyze live spreads and process natural language queries.
-* **Quantitative CLI**: OpenCode-inspired terminal UI with stylized data tables and pipeline exports (CSV, JSON).
+### 4. Assumptions & Risks
+* **Counterparty Risk**: Assumes zero protocol exploit risk (Polymarket/UMA Oracle).
+* **Currency Risk**: Assumes USDC maintains strict $\$1.00$ peg until $T$.
+* **Execution**: PolyArb scans top-of-book (BBO). Deep fills require volume-weighted average price (VWAP) adjustments.
 
-## Installation
+## System Architecture
+* **Data Ingestion (ETL)**: Synchronous polling of the Polymarket Gamma API and Yahoo Finance.
+* **Persistence**: SQLite-backed caching to minimize API rate-limit exhaustion.
+* **Agentic NLP Interface**: Integrates `nvidia/nemotron-3-super-120b-a12b:free` via OpenRouter to parse complex market criteria and execute natural language filtering over the spread matrix.
 
-Ensure you have the `uv` package manager installed.
+## Deployment
 
+Requires `uv` for dependency resolution.
 ```bash
 uv sync
 ```
 
-## CLI Usage
+## Execution Pipeline
 
-### Market Scanner
-Detect arbitrage setups exceeding a specific annualized spread threshold:
+### Terminal Scanner
+Execute a cross-market scan targeting a minimum annualized spread $\sigma \ge 5.0\%$:
 ```bash
 uv run python main.py scan --threshold 5.0
 ```
 
-Dump identified parameters to disk for downstream pipeline ingestion:
+Export quantitative parameter arrays to CSV/JSON for backtesting or automated execution modules:
 ```bash
 uv run python main.py scan --threshold 3.0 --export csv
 ```
 
-### Agentic Chat
-Interact with the quantitative dataset via the integrated Nvidia Nemotron model:
+### Agentic Matrix Query
+Launch the Nvidia Nemotron LLM to query the cached arbitrage matrix:
 ```bash
 export OPENROUTER_API_KEY="sk-or-v1-..."
 uv run python main.py chat
