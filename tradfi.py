@@ -135,7 +135,7 @@ _ESCAPED_KEYS = [
 ]
 ASSET_PATTERN: Final[str] = r"\b(" + "|".join(_ESCAPED_KEYS) + r")\b"
 
-_PRICE_PATTERN: Final[str] = r"\$?(\d+(?:,\d{3})*(?:\.\d+)?)\s*([kKmM]?)"
+_PRICE_PATTERN: Final[str] = r"(?:above|below|reaches|hit|hits|reach|reaches|to|under|over|at least|>|<|=)\s*(?:\$?)\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*([kKmM]?)"
 _ABOVE_KEYWORDS: Final[str] = (
     r"\b(above|over|higher|greater|exceed|surpass|reach|hit)\b"
 )
