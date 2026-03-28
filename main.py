@@ -40,7 +40,7 @@ def export_data(data: list[Opportunity], format_type: Literal["json", "csv"]) ->
 @app.command()
 def scan(
     threshold: float = typer.Option(
-        5.0, "--threshold", "-t", help="Minimum spread threshold (%)"
+        1.0, "--threshold", "-t", help="Minimum spread threshold (%)"
     ),
     export: str = typer.Option(
         None, "--export", "-e", help="Export format: csv or json"

@@ -1,4 +1,6 @@
-import math
+import re
+
+content = """import math
 import re
 from datetime import datetime, timezone
 from typing import Final, Tuple
@@ -66,7 +68,7 @@ ASSET_MAPPING = {
 }
 
 escaped_keys = [re.escape(k) for k in sorted(ASSET_MAPPING.keys(), key=len, reverse=True)]
-ASSET_PATTERN = r"\b(" + "|".join(escaped_keys) + r")\b"
+ASSET_PATTERN = r"\\b(" + "|".join(escaped_keys) + r")\\b"
 
 
 def get_yield_curve() -> dict[int, float]:
@@ -109,14 +111,14 @@ def get_risk_free_rate(days_to_maturity: int) -> float:
 
 
 def norm_cdf(x: float) -> float:
-    """Basic normal cumulative distribution function."""
+    \"\"\"Basic normal cumulative distribution function.\"\"\"
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
 
 def calculate_implied_probability(
     S: float, K: float, T_years: float, r: float, sigma: float
 ) -> float:
-    """Calculate the Black-Scholes implied probability N(d2) of finishing ITM."""
+    \"\"\"Calculate the Black-Scholes implied probability N(d2) of finishing ITM.\"\"\"
     if T_years <= 0 or sigma <= 0:
         return 1.0 if S >= K else 0.0
     d2 = (math.log(S / K) + (r - 0.5 * sigma**2) * T_years) / (sigma * math.sqrt(T_years))
@@ -124,7 +126,7 @@ def calculate_implied_probability(
 
 
 def extract_financial_target(question: str) -> Tuple[str, float, bool] | None:
-    """Parse a Polymarket question to extract a ticker, target price, and direction."""
+    \"\"\"Parse a Polymarket question to extract a ticker, target price, and direction.\"\"\"
     ticker_match = re.search(ASSET_PATTERN, question, re.IGNORECASE)
     if not ticker_match:
         return None
@@ -135,36 +137,36 @@ def extract_financial_target(question: str) -> Tuple[str, float, bool] | None:
         return None
 
     # Match numeric target with optional commas and k/m suffixes
-    price_match = re.search(r"\$?(\d+(?:,\d{3})*(?:\.\d+)?)\s*([kKmM]?)", question)
+    price_match = re.search(r\"\\$?(\\d+(?:,\\d{3})*(?:\\.\\d+)?)\\s*([kKmM]?)\", question)
     if not price_match:
         return None
 
-    price_str = price_match.group(1).replace(",", "")
+    price_str = price_match.group(1).replace(\",\", \"\")
     try:
         price = float(price_str)
     except ValueError:
         return None
 
     suffix = price_match.group(2).lower()
-    if suffix == "k":
+    if suffix == \"k\":
         price *= 1000.0
-    elif suffix == "m":
+    elif suffix == \"m\":
         price *= 1000000.0
 
     # Direction: above (default) vs below
     is_above = True
-    if re.search(r"\b(below|under|lower|less|crash|down)\b", question, re.IGNORECASE):
+    if re.search(r\"\\b(below|under|lower|less|crash|down)\\b\", question, re.IGNORECASE):
         is_above = False
 
     return ticker, price, is_above
 
 
 def get_historical_volatility(ticker: str, days: int = 30) -> float | None:
-    """Calculate historical volatility based on the last `days` of daily returns."""
+    \"\"\"Calculate historical volatility based on the last `days` of daily returns.\"\"\"
     try:
         t = yf.Ticker(ticker)
         # Fetch a bit more to ensure we have enough trading days
-        hist = t.history(period=f"{days*2}d")
+        hist = t.history(period=f\"{days*2}d\")
         if hist.empty or len(hist) < 5:
             return None
             
@@ -173,7 +175,7 @@ def get_historical_volatility(ticker: str, days: int = 30) -> float | None:
         if returns.empty:
             return None
             
-        trading_days = 365 if "-" in ticker else 252
+        trading_days = 365 if \"-\" in ticker else 252
         daily_vol = returns.std()
         annualized_vol = daily_vol * math.sqrt(trading_days)
         return float(annualized_vol)
@@ -184,10 +186,10 @@ def get_historical_volatility(ticker: str, days: int = 30) -> float | None:
 def get_tradfi_implied_probability(
     question: str, target_date: datetime
 ) -> float | None:
-    """
+    \"\"\"
     Given a Polymarket question, attempt to derive a TradFi options-based implied probability.
     Returns None if no ticker match or data is unavailable.
-    """
+    \"\"\"
     parsed = extract_financial_target(question)
     if not parsed:
         return None
@@ -199,7 +201,7 @@ def get_tradfi_implied_probability(
         current_price = t.fast_info.last_price
         if current_price is None or current_price == 0:
             # Maybe the fast_info failed, try history
-            hist = t.history(period="1d")
+            hist = t.history(period=\"1d\")
             if not hist.empty:
                 current_price = hist['Close'].iloc[-1]
             if current_price is None or current_price == 0:
@@ -217,10 +219,10 @@ def get_tradfi_implied_probability(
         if options:
             # Find closest expiration date on or after target_date
             best_exp = None
-            min_diff = float("inf")
+            min_diff = float(\"inf\")
             for exp_str in options:
                 try:
-                    exp_date = datetime.strptime(exp_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                    exp_date = datetime.strptime(exp_str, \"%Y-%m-%d\").replace(tzinfo=timezone.utc)
                     diff = (exp_date - target_date).days
                     if 0 <= diff < min_diff:
                         min_diff = diff
@@ -236,9 +238,9 @@ def get_tradfi_implied_probability(
                 calls = chain.calls
                 if not calls.empty:
                     # Get IV from the option closest to the target strike
-                    closest_call = calls.iloc[(calls["strike"] - target_price).abs().argsort()[:1]]
+                    closest_call = calls.iloc[(calls[\"strike\"] - target_price).abs().argsort()[:1]]
                     if not closest_call.empty:
-                        impl_vol = float(closest_call["impliedVolatility"].values[0])
+                        impl_vol = float(closest_call[\"impliedVolatility\"].values[0])
                         if impl_vol >= 0.01:
                             sigma = impl_vol
             except Exception:
@@ -263,3 +265,8 @@ def get_tradfi_implied_probability(
 
     except Exception:
         return None
+"""
+
+with open('tradfi.py', 'w') as f:
+    f.write(content)
+
